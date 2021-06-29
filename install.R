@@ -1,1 +1,1 @@
-install.packages(c("broman","remotes","Seurat","knitr", "rmarkdown","caTools","bitops","rprojroot"))
+install.packages(c("dplyr"","remotes","Seurat","knitr","rmarkdown","patchwork"))
