@@ -1,1 +1,1 @@
-install.packages(c("dplyr"","remotes","Seurat","knitr","rmarkdown","patchwork"))
+install.packages(c("dplyr","remotes","Seurat","knitr","rmarkdown","patchwork"))
