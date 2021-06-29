@@ -1,0 +1,154 @@
+---
+title: "Single Cell Practice"
+author: "MIK"
+date: "6/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+## Load work packages
+```{r}
+
+install.packages('Seurat')
+library(dplyr)
+library(Seurat)
+library(patchwork)
+
+```
+# Load data. Specify the path to the file
+```{r}
+
+pbmc.data <- Read10X(data.dir = "../project/filtered_gene_bc_matrices/hg19/")
+
+```
+# Creation of a Seurat object based on raw (not normalized) data
+```{r}
+
+pbmc <- CreateSeuratObject(counts = pbmc.data, project = "pbmc3k", min.cells = 3, min.features = 200)
+pbmc
+
+```
+# For quality control based on the number of mitochondrial genes, a function is used ```PercentageFeatureSet``` that calculates the percentage of counts originating from a set of functions. We use a set of all genes, starting with ```MT-``` as a set of mitochondrial genes.
+
+#The [[ operator can add columns to the object's metadata. This is a good place to keep track of your data quality metrics.
+
+```{r}
+
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
+
+```
+
+#The number of unique genes and the total number of molecules are calculated automatically on time ``CreateSeuratObject```.
+
+#You can find them stored in the object's metadata
+
+```{r}
+
+head(pbmc@meta.data, 5)
+
+```
+
+# To visually assess the quality of the data, you can use the function ```VnlPlot```
+```{r}
+
+VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+```
+
+
+# Also, the data quality can be displayed using the function ```FeatureScatter``` 
+```{r}
+
+plot1 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+
+```
+
+# Based on these plots, we assume that the target cells have less than 2500 and more than 200 unique properties (genes), as well as less than 5% of mitochondrial genes. To filter out "bad" cells, use the subset function
+
+```{r}
+
+pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+
+```
+
+
+# After weeding out unwanted cells from the dataset, we can proceed to normalization. By default, the Seurat package implements a global scaling normalization method, **LogNormalize**. This method normalizes gene expression for each cell using total expression, multiplies by a scale factor (default 10,000) and transforms the result logarithmically.
+
+#The normalized data is stored in the slot ```pbmc[["RNA"]]@data```.
+
+#Normalization function:
+
+```{r}
+
+pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
+
+```
+
+Or:
+
+```{r}
+pbmc <- NormalizeData(pbmc)
+```
+
+# The next step is to identify properties (genes) that have high cell-to-cell variation in the dataset (that is, they are strongly expressed (expressed) in some cells and weakly expressed in others). Focusing on these genes helps to interpret single-cell sequencing data. 
+
+# The details of this process are described in the material . 
+
+#This step can be done using a function ```FindVariableFeatures```.
+
+#By default, we return 2000 genes.
+
+
+```{r}
+
+pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(pbmc), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(pbmc)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+
+```
+
+# Then we linearly transform the data (i.e. scale) using the **ScaleData** function, which:
+
+#averages the expression of each gene among all cells and equates it to 0
+
+#scales the expression of each gene such that the variance of expression among cells is 1.
+
+# The data scaling result is stored in the slot ``pbmc[["RNA"]]@scale.data```.
+
+```{r}
+
+all.genes <- rownames(pbmc)
+pbmc <- ScaleData(pbmc, features = all.genes)
+
+```
+
